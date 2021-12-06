@@ -17,13 +17,14 @@ MIN_SEN_LEN = 5
 fasttext_model = fasttext.load_model('./data/model/0.3_45_3.bin')
 
 class CustomDataset(Dataset):
-    def __init__(self, path, word_num = 50, test=False):
+    def __init__(self, path, word_num = 50):
         if os.path.isfile(path + '.dat'):
             self.data = torch.load(path + '.dat')
             self.label = torch.load(path + '.lab')
             self.start = torch.load(path + '.sta')
             self.end = torch.load(path + '.end')
             self.word_num = word_num
+            # print(self.data.shape)
             return 
         self.word_num = word_num
 
@@ -76,11 +77,11 @@ class CustomDataset(Dataset):
             end = start + self.word_num
             length = self.word_num
             para = self.data[start : end]
-            
-            return para, length, self.label[index]
+            # print(para.shape, length, self.label[index])
+        return para, length, self.label[index]
 
-        def __len__(self):
-            return len(self.label)
+    def __len__(self):
+        return len(self.label)
 
 
 if __name__ == '__main__':

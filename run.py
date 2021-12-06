@@ -14,9 +14,12 @@ from config import Config
 import argparse
 import fasttext
 import numpy as np
+import random
+
+WORD_NUM = 50
 
 def get_f1(precision, recall):
-    return  2.0 * precision * recall / (precision + recall)
+    return  2.0 * precision * recall / (precision + recall) if (precision + recall != 0) else 0
 
 #write word vectors
 def prepare_test_data(test_path, word_num=50):
@@ -37,7 +40,7 @@ def prepare_test_data(test_path, word_num=50):
                     for sentence in sentences:
                         if len(sentence) > 2 * word_num:
                             sentence = sentence[0 : 2 * word_num]
-                        sentence_vec = torch.FloatTensor([fasttext_model.get_word_vector(word) for word in sentence])
+                        sentence_vec = [fasttext_model.get_word_vector(word).tolist() for word in sentence]
                         para_vec.append(sentence_vec)
                     cur_json['encodings'] = para_vec
                     del cur_json['reviewText']
@@ -57,43 +60,59 @@ def test(cnn, test_path):
     with open(test_path + '.dat') as inp:
         cnt = 0
         for line in inp:
+            if cnt % 1000 == 0:
+                print('------------------test: ' + str(cnt) + '------------------')
             cur_json = json.loads(line.strip())
-            para_vec, label = torch.FloatTensor(cur_json['encodings']), int(cur_json['ratings'])
-            label = label.to(dtype=torch.int64)
+            # print()
+            para_vec, label = cur_json['encodings'], int(cur_json['ratings'])
             #print(vec.shape)
             pred_v = []
             for sen_vec in para_vec:
-                
+                sen_vec = torch.FloatTensor(sen_vec)
+                sen_size = sen_vec.shape[0]
+                if sen_size <= WORD_NUM:
+                    sen_vec = torch.cat((sen_vec, torch.zeros((WORD_NUM - sen_size, 100))), dim=0)
+                else:
+                    start = random.randint(0, sen_size - WORD_NUM)
+                    end = start + WORD_NUM
+                    sen_vec = sen_vec[start : end]
+                sen_vec = sen_vec.unsqueeze(0) #add batch size 
+
                 output = cnn(sen_vec)
-                pred = torch.max(output, 1)[1]
+                pred = torch.max(output, 1)[1].item() + 1 #alighn from 0~N-1 to 1~N
+                # print(pred)
                 pred_v.append(pred)
-            pred_score = np.mean(pred_v)
+            # print(pred_v)
+            pred_score = np.mean(pred_v) if len(pred_v) != 0 else 3   #give an average learning
             overall_pred = round(pred_score)  #average mean for a para
 
             if cnt == 0:
-                labels = label
-                targ = overall_pred
+                labels = torch.IntTensor([label])
+                targ = torch.IntTensor([overall_pred])
             else:
-                targ = torch.cat((targ, overall_pred), dim=0)
-                labels = torch.cat((labels, label), dim=0)
+                targ = torch.cat((targ, torch.IntTensor([overall_pred])), dim=0)
+                labels = torch.cat((labels, torch.IntTensor([label])), dim=0)
             cnt += 1
             
-            right += label[targ == label].size(0)
-            total += label.size(0)
+            right += labels[targ == labels].size(0)
+            total += labels.size(0)
             
     pred = targ
     #Get metrics for each kind of labels
+    print(torch.unique(pred))
+    print(torch.unique(labels))
     for tag in range(1, 6):
-        print('For Label ' + str(tag) + ': ')
+        print('For Label ' + str(tag) + ': ', end = "")
+        # print(labels)
         true_pos = labels[(pred == tag) & (labels == pred)].size(0)
         pred_pos = labels[pred == tag].size(0)
         label_pos = labels[labels == tag].size(0)
-        precision = true_pos / pred_pos
-        recall =  true_pos / label_pos
+        precision = (true_pos / pred_pos) if pred_pos != 0 else 0
+        recall =  (true_pos / label_pos) if label_pos != 0 else 0
         F1 = get_f1(precision, recall)
         print("precision: {} ".format(precision), end="")
         print("recall: {} ".format(recall), end="")
-        print("F1: {} ".format(F1), end="")
+        print("F1: {} ".format(F1))
 
     accuracy = float(right) / total
     print("accuracy: {} ".format(accuracy), end="")
@@ -103,9 +122,9 @@ if __name__ == "__main__":
     torch.manual_seed(1)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', type=float, default=0.1)
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--epoch', type=int, default=20)
+    parser.add_argument('--lr', type=float, default=0.005)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--epoch', type=int, default=50)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--out_channel', type=int, default=2)
     parser.add_argument('--label_num', type=int, default=5)
@@ -151,6 +170,8 @@ if __name__ == "__main__":
                 label = label.cuda()
             output = cnn(vec)
             label = label.to(dtype=torch.int64)
+            label = label - 1 #align with 0-N-1
+            # print(label)
             loss = F.cross_entropy(output, label)
             optimizer.zero_grad()
             loss.backward()

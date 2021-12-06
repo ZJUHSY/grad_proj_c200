@@ -21,7 +21,10 @@ class TextCNN(BasicModule):
         self.linear1 = nn.Linear(3, config.label_num)
 
     def forward(self, x):
+        x = x.unsqueeze(1)  # (N, Ci, W, D)
+        # print('---------' + str(x.shape) + '------------')
         batch = x.shape[0]
+
         # Convolution
         x1 = F.relu(self.conv3(x))
         x2 = F.relu(self.conv4(x))
