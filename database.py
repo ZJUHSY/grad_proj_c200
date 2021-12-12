@@ -14,7 +14,7 @@ CLIENT_BATCH_SIZE = 4096
 WORD_NUM = 64
 MIN_SEN_LEN = 5
 
-fasttext_model = fasttext.load_model('./data/model/0.3_45_3.bin')
+fasttext_model = fasttext.load_model('../../data/model/0.5_45_3.bin')
 
 class CustomDataset(Dataset):
     def __init__(self, path, word_num = 50):

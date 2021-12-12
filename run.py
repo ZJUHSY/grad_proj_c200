@@ -26,7 +26,7 @@ def prepare_test_data(test_path, word_num=50):
     test_write_path = test_path + '.dat'
     if not os.path.isfile(test_write_path):
         pbar = tqdm(total=100)
-        fasttext_model = fasttext.load_model('./data/model/0.3_45_3.bin')
+        fasttext_model = fasttext.load_model('../../data/model/0.5_45_3.bin')
         with open(test_path) as f:
             with open(test_write_path, 'a') as outf:
                 cnt = 0
@@ -98,9 +98,9 @@ def test(cnn, test_path):
             total += labels.size(0)
             
     pred = targ
-    #Get metrics for each kind of labels
-    print(torch.unique(pred))
-    print(torch.unique(labels))
+    # #Get metrics for each kind of labels
+    # print(torch.unique(pred))
+    # print(torch.unique(labels))
     for tag in range(1, 6):
         print('For Label ' + str(tag) + ': ', end = "")
         # print(labels)
@@ -122,9 +122,9 @@ if __name__ == "__main__":
     torch.manual_seed(1)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', type=float, default=0.005)
+    parser.add_argument('--lr', type=float, default=0.0005)
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--epoch', type=int, default=50)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--out_channel', type=int, default=2)
     parser.add_argument('--label_num', type=int, default=5)
